@@ -45,10 +45,17 @@ private:
     void createStatusBar();
     void takeScreenshot(vtkSmartPointer<vtkRenderWindow> renderWindow,
         const std::string& filename, const bool setTransparentBackgroud = false);
+    void saveCameras(const std::string& filename);
 
     QVTKOpenGLNativeWidget* vtkWidget;
     vtkSmartPointer<vtkRenderer> renderer;
     QListWidget* camerasList;
 
+    // The path to the .json file used to save the cameras
+    QString projectPath;
+    // The size we should use in the offscreen render window
+    // to preserve the aspect ratio used in the cameras definition
+    QSize vtkOffscreenWindowSize;
+    // A vector to hold our cameras
     std::vector<Camera*> cameras;
 };

@@ -12,6 +12,7 @@
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
 
+#include "json.hpp"
 #include "Camera.h"
 
 MainWindow::MainWindow()
@@ -37,41 +38,108 @@ MainWindow::MainWindow()
 
 void MainWindow::open()
 {
+    auto fileName = QFileDialog::getOpenFileName(this,
+        tr("Open cameras file"), "", tr("json File (*.json)"));
+    if (fileName.isEmpty())
+    {
+        return;
+    }
+    // Clear the current project
+    projectPath = "";
+    cameras.clear();
+    camerasList->clear();
+    //
+    nlohmann::json jsonFile;
+    try
+    {
+        std::ifstream parametersFile(fileName.toStdString());
+        if (!parametersFile.is_open())
+        {
+            QMessageBox::warning(this, tr("MPCCT"),
+                tr("Cannot open file %1.")
+                .arg(QDir::toNativeSeparators(fileName)));
+            return;
+        }
+        jsonFile = nlohmann::json::parse(parametersFile);
+    }
+    catch (const std::exception&)
+    {
+        QMessageBox::warning(this, tr("MPCCT"),
+            tr("Cannot open file %1.")
+            .arg(QDir::toNativeSeparators(fileName)));
+        return;
+    }
+    QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+    // Load cameras
+    for (auto& [key, value] : jsonFile.items()) 
+    {
+        if (key == "width")
+        {
+            vtkOffscreenWindowSize.setWidth(value);
+        }
+        else if (key == "height")
+        {
+            vtkOffscreenWindowSize.setHeight(value);
+        }
+        else if (value["type"] == "Camera")
+        {
+            vtkNew<vtkCamera> vtkCam;
+            vtkCam->SetPosition(value["position"][0],
+                value["position"][1],
+                value["position"][2]);
+            vtkCam->SetFocalPoint(value["focalPoint"][0],
+                value["focalPoint"][1],
+                value["focalPoint"][2]);
+            vtkCam->SetViewUp(value["viewUp"][0],
+                value["viewUp"][1],
+                value["viewUp"][2]);
+            vtkCam->SetViewAngle(value["viewAngle"]);
+            QListWidgetItem* item = new QListWidgetItem("Camera");
+            camerasList->addItem(item);
+            cameras.emplace_back(new Camera(vtkCam, item));
+        }
+    }
+    //
+    QGuiApplication::restoreOverrideCursor();
+    statusBar()->showMessage(tr("Opened '%1'").arg(fileName), 2000);
+    projectPath = fileName;
 }
 
 void MainWindow::save()
 {
-    QMimeDatabase mimeDatabase;
-    QString fileName = QFileDialog::getSaveFileName(this,
-        tr("Choose a file name"), ".",
-        mimeDatabase.mimeTypeForName("text/html").filterString());
-    if (fileName.isEmpty())
-        return;
-    QFile file(fileName);
-    if (!file.open(QFile::WriteOnly | QFile::Text)) {
-        QMessageBox::warning(this, tr("Dock Widgets"),
-            tr("Cannot write file %1:\n%2.")
-            .arg(QDir::toNativeSeparators(fileName), file.errorString()));
-        return;
+    if (projectPath.isEmpty())
+    {
+        saveAs();
     }
-
-    QTextStream out(&file);
-    QGuiApplication::setOverrideCursor(Qt::WaitCursor);
-    //out << textEdit->toHtml();
-    QGuiApplication::restoreOverrideCursor();
-
-    statusBar()->showMessage(tr("Saved '%1'").arg(fileName), 2000);
+    else
+    {
+        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+        saveCameras(projectPath.toStdString());
+        QGuiApplication::restoreOverrideCursor();
+        statusBar()->showMessage(tr("Saved '%1'").arg(projectPath), 2000);
+    }
 }
 
 void MainWindow::saveAs()
 {
+    QString fileName = QFileDialog::getSaveFileName(this,
+        tr("Choose a file name"), "", tr("json File (*.json)"));
+    if (fileName.isEmpty())
+    {
+        return;
+    }
+    QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+    saveCameras(fileName.toStdString());
+    QGuiApplication::restoreOverrideCursor();
+    statusBar()->showMessage(tr("Saved '%1'").arg(fileName), 2000);
+    projectPath = fileName;
 }
 
 void MainWindow::load()
 {
     auto fileName = QFileDialog::getOpenFileName(this,
         tr("Open mesh/point cloud"), "", tr("3D Files (*.ply)"));
-    if (fileName == "")
+    if (fileName.isEmpty())
     {
         return;
     }
@@ -282,4 +350,40 @@ void MainWindow::takeScreenshot(vtkSmartPointer<vtkRenderWindow> renderWindow,
     pngWriter->SetFileName(filename.c_str());
     pngWriter->SetInputConnection(filter->GetOutputPort());
     pngWriter->Write();
+}
+
+void MainWindow::saveCameras(const std::string& filename)
+{
+    nlohmann::json jsonFile;
+    // Get vtk window size
+    jsonFile["width"] = vtkWidget->size().width();
+    jsonFile["height"] = vtkWidget->size().height();
+    // Add the cameras
+    int idx = 0;
+    for (const auto& camera : cameras)
+    {
+        const auto vtkCam = camera->GetCamera();
+        std::stringstream s;
+        s << "Camera" << idx;
+        jsonFile[s.str()] = {
+            { "type", "Camera"},
+            { "position",  {vtkCam->GetPosition()[0],
+                            vtkCam->GetPosition()[1],
+                            vtkCam->GetPosition()[2]}
+            },
+            { "focalPoint",{vtkCam->GetFocalPoint()[0],
+                            vtkCam->GetFocalPoint()[1],
+                            vtkCam->GetFocalPoint()[2]}
+            },
+            { "viewUp",    {vtkCam->GetViewUp()[0],
+                            vtkCam->GetViewUp()[1],
+                            vtkCam->GetViewUp()[2]}
+            },
+            { "viewAngle", vtkCam->GetViewAngle()}
+        };
+        idx++;
+    }
+    std::ofstream output(filename);
+    output << std::setw(4) << jsonFile;
+    output.close();
 }

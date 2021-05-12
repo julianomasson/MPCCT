@@ -17,11 +17,12 @@ find_package(VTK REQUIRED)
 
 add_executable(${PROJECT_NAME}
 					src/resources.qrc
-    					src/main.cpp
+    				src/main.cpp
 					src/MainWindow.cpp
 					src/MainWindow.h
 					src/Camera.cpp
-					src/Camera.h)
+					src/Camera.h
+					src/json.hpp)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt5::Widgets)
 
