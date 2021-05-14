@@ -12,7 +12,6 @@
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
 
-#include "CaptureScreenshotsWidget.h"
 #include "json.hpp"
 #include "Camera.h"
 
@@ -211,95 +210,6 @@ void MainWindow::removeSelectedCamera()
 
 void MainWindow::captureScreenshots()
 {
-    // Find the base filename
-    auto plyFileName = QFileDialog::getOpenFileName(this,
-        tr("Open mesh/point cloud"), "", tr("3D Files (*.ply)"));
-    if (plyFileName.isEmpty())
-    {
-        return;
-    }
-
-    QFileInfo fileInfo(plyFileName);
-    QFileInfo fileInfo2(fileInfo.absolutePath() + ".abc");
-    // Get the base directory
-    QDir directory(fileInfo2.absolutePath());
-    if (!directory.exists(fileInfo.fileName()))
-    {
-        if (!directory.mkdir(fileInfo.fileName()))
-        {
-            return;
-        }
-    }
-    // Create the cameras folders
-    for (size_t i = 0; i < cameras.size(); i++)
-    {
-        std::string folderName = fileInfo.fileName().toStdString() + "\\camera_" + std::to_string(i);
-        if (!directory.exists(folderName.c_str()))
-        {
-            if (!directory.mkdir(folderName.c_str()))
-            {
-                return;
-            }
-        }
-    }
-
-
-    // Loop trought each file
-    QStringList plyFiles = directory.entryList(QStringList() << fileInfo.fileName(), QDir::Files);
-    for(const auto& fileName : plyFiles)
-    {
-        // Load each filename
-    }
-
-
-    //std::string filenameToUse;
-    //wxArrayString plyFiles;
-    //wxDir::GetAllFiles(mainDir, &plyFiles, filenameToUse, wxDIR_FILES | wxDIR_DIRS);
-
-    //// Create the ply folder
-    //std::string plyFolder = mainDir + "\\" + filenameToUse;
-    //if (!wxDirExists(plyFolder))
-    //{
-    //    wxMkdir(plyFolder);
-    //}
-    //// Create the cameras folders
-    //for (size_t i = 0; i < cameras.size(); i++)
-    //{
-    //    auto folderName = plyFolder + "\\camera_" + std::to_string(i);
-    //    if (!wxDirExists(folderName))
-    //    {
-    //        wxMkdir(folderName);
-    //    }
-    //}
-
-
-    //// Create the offscreen renderer
-    //vtkNew<vtkRenderer> rendererOffScreen;
-    //vtkNew<vtkRenderWindow> renderWindowOffScreen;
-    //renderWindowOffScreen->SetOffScreenRendering(1);
-    //renderWindowOffScreen->SetSize(vtkOffscreenWindowSize.width(),
-    //    vtkOffscreenWindowSize.height());
-    //renderWindowOffScreen->AddRenderer(rendererOffScreen);
-
-
-
-    //// Loop through the ply files
-    //for (const auto& plyFile : plyFiles)
-    //{
-    //    auto actor = ReadPLY(plyFile.ToStdString());
-    //    rendererOffScreen->AddActor(actor);
-    //    // Loop through the cameras and save screenshots
-    //    for (size_t i = 0; i < cameras.size(); i++)
-    //    {
-    //        rendererOffScreen->SetActiveCamera(cameras[i]);
-    //        rendererOffScreen->ResetCameraClippingRange();
-    //        renderWindowOffScreen->Render();
-
-    //        TakeScreenshot(renderWindowOffScreen,
-    //            plyFolder + "\\camera_" + std::to_string(i) + "\\" + wxFileName(plyFile).GetDirs().Last().ToStdString() + ".png");
-    //    }
-    //    rendererOffScreen->RemoveActor(actor);
-    //}
 }
 
 void MainWindow::about()
@@ -418,13 +328,6 @@ void MainWindow::createDockWindows()
     addDockWidget(Qt::RightDockWidgetArea, dock);
     connect(camerasList, &QListWidget::itemDoubleClicked,
         this, &MainWindow::cameraDoubleClick);
-
-    QDockWidget* dock2 = new QDockWidget(tr("Capture tool"), this);
-    dock2->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-    dock2->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    captureTool = new CaptureScreenshotsWidget(dock2);
-    dock2->setWidget(captureTool);
-    addDockWidget(Qt::RightDockWidgetArea, dock2);
 }
 
 void MainWindow::createStatusBar()
