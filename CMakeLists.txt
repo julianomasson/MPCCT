@@ -22,6 +22,8 @@ add_executable(${PROJECT_NAME}
 					src/MainWindow.h
 					src/Camera.cpp
 					src/Camera.h
+					src/CaptureScreenshotsWidget.cpp
+					src/CaptureScreenshotsWidget.h
 					src/json.hpp)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Qt5::Widgets)
