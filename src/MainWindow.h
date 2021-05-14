@@ -17,6 +17,7 @@ class vtkRenderer;
 class vtkRenderWindow;
 
 class Camera;
+class CaptureScreenshotsWidget;
 
 class MainWindow : public QMainWindow
 {
@@ -50,6 +51,8 @@ private:
     QVTKOpenGLNativeWidget* vtkWidget;
     vtkSmartPointer<vtkRenderer> renderer;
     QListWidget* camerasList;
+
+    CaptureScreenshotsWidget* captureTool;
 
     // The path to the .json file used to save the cameras
     QString projectPath;
