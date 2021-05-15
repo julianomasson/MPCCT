@@ -16,7 +16,7 @@ class QVTKOpenGLNativeWidget;
 class vtkRenderer;
 class vtkRenderWindow;
 
-class Camera;
+class Project;
 class CaptureScreenshotsWidget;
 
 class MainWindow : public QMainWindow
@@ -27,6 +27,7 @@ public:
     MainWindow();
 
 private slots:
+    void newProject();
     void open();
     void save();
     void saveAs();
@@ -38,7 +39,7 @@ private slots:
     void captureScreenshots();
     void about();
     // Go to the selected camera
-    void cameraDoubleClick(const QListWidgetItem* item);
+    void cameraDoubleClick(QListWidgetItem* item);
 
 private:
     void createActions();
@@ -46,7 +47,6 @@ private:
     void createStatusBar();
     void takeScreenshot(vtkSmartPointer<vtkRenderWindow> renderWindow,
         const std::string& filename, const bool setTransparentBackgroud = false);
-    void saveCameras(const std::string& filename);
 
     QVTKOpenGLNativeWidget* vtkWidget;
     vtkSmartPointer<vtkRenderer> renderer;
@@ -54,11 +54,6 @@ private:
 
     CaptureScreenshotsWidget* captureTool;
 
-    // The path to the .json file used to save the cameras
-    QString projectPath;
-    // The size we should use in the offscreen render window
-    // to preserve the aspect ratio used in the cameras definition
-    QSize vtkOffscreenWindowSize;
-    // A vector to hold our cameras
-    std::vector<Camera*> cameras;
+    // Project that will hold the cameras
+    Project* project;
 };

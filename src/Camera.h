@@ -8,17 +8,23 @@ class vtkCamera;
 class Camera
 {
 public:
-	Camera(vtkSmartPointer<vtkCamera> camera, QListWidgetItem* item);
+	Camera(vtkSmartPointer<vtkCamera> camera, QListWidgetItem* item,
+		int vtkRenderWindowSizeWidth, int vtkRenderWindowSizeHeight);
 	Camera();
 	~Camera();
 
-	void SetCamera(vtkSmartPointer<vtkCamera> camera);
-	void SetListItem(QListWidgetItem* item);
+	void setCamera(vtkSmartPointer<vtkCamera> camera);
+	void setListItem(QListWidgetItem* item);
+	void setRenderWindowSize(int width, int height);
 
-	vtkSmartPointer<vtkCamera> GetCamera() { return camera; };
-	QListWidgetItem* GetListItem() { return item; };
+	vtkSmartPointer<vtkCamera> getCamera() { return camera; };
+	QListWidgetItem* getListItem() { return item; };
+	int* getRenderWindowSize() { return vtkRenderWindowSize; };
 
 private:
 	vtkSmartPointer<vtkCamera> camera;
 	QListWidgetItem* item;
+	// The size we should use in the offscreen render window
+	// to preserve the aspect ratio used in the camera definition
+	int vtkRenderWindowSize[2];
 };

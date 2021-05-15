@@ -13,10 +13,11 @@
 #include <vtkPNGWriter.h>
 
 #include "CaptureScreenshotsWidget.h"
-#include "json.hpp"
+
+#include "Project.h"
 #include "Camera.h"
 
-MainWindow::MainWindow()
+MainWindow::MainWindow() : project(nullptr)
 {
     // Set up the QVTK window
     vtkWidget = new QVTKOpenGLNativeWidget(this);
@@ -37,6 +38,27 @@ MainWindow::MainWindow()
     setWindowTitle(tr("MPCCT"));
 }
 
+void MainWindow::newProject()
+{
+    if (project != nullptr)
+    {
+        auto reply = QMessageBox::question(this, tr("MPCCT"),
+            tr("Do you want to remove the current project?"),
+            QMessageBox::Yes | QMessageBox::No);
+        if (reply == QMessageBox::No)
+        {
+            return;
+        }
+        else
+        {
+            // Clear the current project
+            camerasList->clear();
+            delete project;
+        }
+    }
+    project = new Project();
+}
+
 void MainWindow::open()
 {
     auto fileName = QFileDialog::getOpenFileName(this,
@@ -45,79 +67,57 @@ void MainWindow::open()
     {
         return;
     }
-    // Clear the current project
-    projectPath = "";
-    cameras.clear();
-    camerasList->clear();
-    //
-    nlohmann::json jsonFile;
-    try
+    if (project != nullptr)
     {
-        std::ifstream parametersFile(fileName.toStdString());
-        if (!parametersFile.is_open())
+        auto reply = QMessageBox::question(this, tr("MPCCT"),
+            tr("Do you want to remove the current project?"),
+            QMessageBox::Yes | QMessageBox::No);
+        if (reply == QMessageBox::No)
         {
-            QMessageBox::warning(this, tr("MPCCT"),
-                tr("Cannot open file %1.")
-                .arg(QDir::toNativeSeparators(fileName)));
             return;
         }
-        jsonFile = nlohmann::json::parse(parametersFile);
+        else
+        {
+            // Clear the current project
+            camerasList->clear();
+            delete project;
+        }
     }
-    catch (const std::exception&)
+    project = new Project();
+    QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+    auto error = !project->load(fileName);
+    QGuiApplication::restoreOverrideCursor();
+    if (error)
     {
         QMessageBox::warning(this, tr("MPCCT"),
             tr("Cannot open file %1.")
             .arg(QDir::toNativeSeparators(fileName)));
-        return;
+        delete project;
     }
-    QGuiApplication::setOverrideCursor(Qt::WaitCursor);
-    // Load cameras
-    for (auto& [key, value] : jsonFile.items()) 
+    else
     {
-        if (key == "width")
+        // Populate the camera list
+        const auto numberOfCameras = project->getNumberOfCameras();
+        for (size_t i = 0; i < numberOfCameras; i++)
         {
-            vtkOffscreenWindowSize.setWidth(value);
+            camerasList->addItem(project->getCamera(i)->getListItem());
         }
-        else if (key == "height")
-        {
-            vtkOffscreenWindowSize.setHeight(value);
-        }
-        else if (value["type"] == "Camera")
-        {
-            vtkNew<vtkCamera> vtkCam;
-            vtkCam->SetPosition(value["position"][0],
-                value["position"][1],
-                value["position"][2]);
-            vtkCam->SetFocalPoint(value["focalPoint"][0],
-                value["focalPoint"][1],
-                value["focalPoint"][2]);
-            vtkCam->SetViewUp(value["viewUp"][0],
-                value["viewUp"][1],
-                value["viewUp"][2]);
-            vtkCam->SetViewAngle(value["viewAngle"]);
-            QListWidgetItem* item = new QListWidgetItem("Camera");
-            camerasList->addItem(item);
-            cameras.emplace_back(new Camera(vtkCam, item));
-        }
+        statusBar()->showMessage(tr("Opened '%1'").arg(fileName), 2000);
     }
-    //
-    QGuiApplication::restoreOverrideCursor();
-    statusBar()->showMessage(tr("Opened '%1'").arg(fileName), 2000);
-    projectPath = fileName;
 }
 
 void MainWindow::save()
 {
-    if (projectPath.isEmpty())
+    if (project->isOnDisk())
     {
-        saveAs();
+        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+        project->save();
+        QGuiApplication::restoreOverrideCursor();
+        statusBar()->showMessage(tr("Saved '%1'").arg(project->getPath()), 2000);
     }
     else
     {
-        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
-        saveCameras(projectPath.toStdString());
-        QGuiApplication::restoreOverrideCursor();
-        statusBar()->showMessage(tr("Saved '%1'").arg(projectPath), 2000);
+        saveAs();
     }
 }
 
@@ -130,10 +130,9 @@ void MainWindow::saveAs()
         return;
     }
     QGuiApplication::setOverrideCursor(Qt::WaitCursor);
-    saveCameras(fileName.toStdString());
+    project->save(fileName);
     QGuiApplication::restoreOverrideCursor();
     statusBar()->showMessage(tr("Saved '%1'").arg(fileName), 2000);
-    projectPath = fileName;
 }
 
 void MainWindow::load()
@@ -167,7 +166,8 @@ void MainWindow::addCamera()
 {
     QListWidgetItem* item = new QListWidgetItem("Camera");
     camerasList->addItem(item);
-    cameras.emplace_back(new Camera(renderer->GetActiveCamera(), item));
+    project->addCamera(renderer->GetActiveCamera(), item,
+        vtkWidget->size().width(), vtkWidget->size().height());
 }
 
 void MainWindow::updateCamera()
@@ -177,15 +177,8 @@ void MainWindow::updateCamera()
     {
         return;
     }
-    const auto numberOfCameras = cameras.size();
-    for (size_t i = 0; i < numberOfCameras; i++)
-    {
-        if (currentItem == cameras[i]->GetListItem())
-        {
-            cameras[i]->SetCamera(renderer->GetActiveCamera());
-            break;
-        }
-    }
+    project->updateCamera(currentItem, renderer->GetActiveCamera(),
+        vtkWidget->size().width(), vtkWidget->size().height());
 }
 
 void MainWindow::removeSelectedCamera()
@@ -195,17 +188,11 @@ void MainWindow::removeSelectedCamera()
     {
         return;
     }
-    const auto numberOfCameras = cameras.size();
-    for (size_t i = 0; i < numberOfCameras; i++)
+    if (project->removeCamera(currentItem))
     {
-        if (currentItem == cameras[i]->GetListItem())
-        {
-            cameras.erase(cameras.begin() + i);
-            auto item = camerasList->takeItem(camerasList->currentRow());
-            delete item;
-            camerasList->update();
-            break;
-        }
+        auto item = camerasList->takeItem(camerasList->currentRow());
+        delete item;
+        camerasList->update();
     }
 }
 
@@ -231,7 +218,7 @@ void MainWindow::captureScreenshots()
         }
     }
     // Create the cameras folders
-    for (size_t i = 0; i < cameras.size(); i++)
+    for (size_t i = 0; i < project->getNumberOfCameras(); i++)
     {
         std::string folderName = fileInfo.fileName().toStdString() + "\\camera_" + std::to_string(i);
         if (!directory.exists(folderName.c_str()))
@@ -310,22 +297,18 @@ void MainWindow::about()
             "from different meshes/poitn clouds."));
 }
 
-void MainWindow::cameraDoubleClick(const QListWidgetItem* item)
+void MainWindow::cameraDoubleClick(QListWidgetItem* item)
 {
     if (!item)
     {
         return;
     }
-    const auto numberOfCameras = cameras.size();
-    for (size_t i = 0; i < numberOfCameras; i++)
+    auto camera = project->getCamera(item);
+    if (camera)
     {
-        if (item == cameras[i]->GetListItem())
-        {
-            renderer->SetActiveCamera(cameras[i]->GetCamera());
-            renderer->ResetCameraClippingRange();
-            renderer->GetRenderWindow()->Render();
-            break;
-        }
+        renderer->SetActiveCamera(camera->getCamera());
+        renderer->ResetCameraClippingRange();
+        renderer->GetRenderWindow()->Render();
     }
 }
 
@@ -334,6 +317,13 @@ void MainWindow::createActions()
     // File
     QMenu* fileMenu = menuBar()->addMenu(tr("&File"));
     QToolBar* fileToolBar = addToolBar(tr("File"));
+
+    QAction* newProjectAct = new QAction(QIcon(":/images/newProject.png"), tr("&New project"), this);
+    newProjectAct->setShortcuts(QKeySequence::New);
+    newProjectAct->setStatusTip(tr("Open a project"));
+    connect(newProjectAct, &QAction::triggered, this, &MainWindow::newProject);
+    fileMenu->addAction(newProjectAct);
+    fileToolBar->addAction(newProjectAct);
 
     QAction* openAct = new QAction(QIcon(":/images/open.png"), tr("&Open"), this);
     openAct->setShortcuts(QKeySequence::Open);
@@ -447,40 +437,4 @@ void MainWindow::takeScreenshot(vtkSmartPointer<vtkRenderWindow> renderWindow,
     pngWriter->SetFileName(filename.c_str());
     pngWriter->SetInputConnection(filter->GetOutputPort());
     pngWriter->Write();
-}
-
-void MainWindow::saveCameras(const std::string& filename)
-{
-    nlohmann::json jsonFile;
-    // Get vtk window size
-    jsonFile["width"] = vtkWidget->size().width();
-    jsonFile["height"] = vtkWidget->size().height();
-    // Add the cameras
-    int idx = 0;
-    for (const auto& camera : cameras)
-    {
-        const auto vtkCam = camera->GetCamera();
-        std::stringstream s;
-        s << "Camera" << idx;
-        jsonFile[s.str()] = {
-            { "type", "Camera"},
-            { "position",  {vtkCam->GetPosition()[0],
-                            vtkCam->GetPosition()[1],
-                            vtkCam->GetPosition()[2]}
-            },
-            { "focalPoint",{vtkCam->GetFocalPoint()[0],
-                            vtkCam->GetFocalPoint()[1],
-                            vtkCam->GetFocalPoint()[2]}
-            },
-            { "viewUp",    {vtkCam->GetViewUp()[0],
-                            vtkCam->GetViewUp()[1],
-                            vtkCam->GetViewUp()[2]}
-            },
-            { "viewAngle", vtkCam->GetViewAngle()}
-        };
-        idx++;
-    }
-    std::ofstream output(filename);
-    output << std::setw(4) << jsonFile;
-    output.close();
 }
