@@ -61,4 +61,6 @@ private:
 
     // Project that will hold the cameras
     Project* project;
+    // Last ply loaded
+    QString lastPlyFilename;
 };

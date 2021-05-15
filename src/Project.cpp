@@ -8,7 +8,7 @@
 #include "json.hpp"
 #include "Camera.h"
 
-Project::Project() : path("")
+Project::Project() : path(""), plyFilename("")
 {
 }
 
@@ -36,7 +36,11 @@ bool Project::load(const QString& filename)
     // Load cameras
     for (auto& [key, value] : jsonFile.items())
     {
-        if (value["type"] == "Camera")
+        if (key == "plyFilename")
+        {
+            plyFilename = std::string(value).c_str();
+        }
+        else if (value["type"] == "Camera")
         {
             vtkNew<vtkCamera> vtkCam;
             vtkCam->SetPosition(value["position"][0],
@@ -70,6 +74,8 @@ bool Project::save(QString filename)
         filename = path;
     }
     nlohmann::json jsonFile;
+    // Add the ply
+    jsonFile["plyFilename"] = plyFilename.toStdString();
     // Add the cameras
     int idx = 0;
     for (const auto& camera : cameras)

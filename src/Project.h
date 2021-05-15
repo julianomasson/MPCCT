@@ -32,6 +32,8 @@ public:
     size_t getNumberOfCameras() { return cameras.size(); };
 
 private:
+    // ply filename used to locate the ply during the capture process
+    QString plyFilename;
     // The path to the .json file used to save the project
     QString path;
     // A vector to hold our cameras

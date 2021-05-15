@@ -52,8 +52,10 @@ void MainWindow::newProject()
         }
         else
         {
+            // TODO: remove the mesh/point cloud
             // Clear the current project
             camerasList->clear();
+            lastPlyFilename = "";
             delete project;
         }
     }
@@ -111,6 +113,12 @@ void MainWindow::open()
 
 void MainWindow::save()
 {
+    if (lastPlyFilename.isEmpty())
+    {
+        QMessageBox::warning(this, tr("MPCCT"),
+            tr("You need to load a mesh/point cloud before saving."));
+        return;
+    }
     if (project->isOnDisk())
     {
         QGuiApplication::setOverrideCursor(Qt::WaitCursor);
@@ -126,6 +134,12 @@ void MainWindow::save()
 
 void MainWindow::saveAs()
 {
+    if (lastPlyFilename.isEmpty())
+    {
+        QMessageBox::warning(this, tr("MPCCT"),
+            tr("You need to load a mesh/point cloud before saving."));
+        return;
+    }
     QString fileName = QFileDialog::getSaveFileName(this,
         tr("Choose a file name"), "", tr("json File (*.json)"));
     if (fileName.isEmpty())
@@ -163,6 +177,8 @@ void MainWindow::load()
     renderer->AddActor(actor);
     renderer->ResetCamera();
     renderer->GetRenderWindow()->Render();
+    QFileInfo fileInfo(fileName);
+    lastPlyFilename = fileInfo.fileName();
 }
 
 void MainWindow::addCamera()
