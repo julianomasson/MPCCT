@@ -47,12 +47,17 @@ private:
     void createStatusBar();
     void takeScreenshot(vtkSmartPointer<vtkRenderWindow> renderWindow,
         const std::string& filename, const bool setTransparentBackgroud = false);
+    void setEnabledProjectActions(bool enable);
 
     QVTKOpenGLNativeWidget* vtkWidget;
     vtkSmartPointer<vtkRenderer> renderer;
     QListWidget* camerasList;
 
     CaptureScreenshotsWidget* captureTool;
+
+    // A vector of actions we should disable
+    // if we do not have a project
+    std::vector<QAction*> actions;
 
     // Project that will hold the cameras
     Project* project;

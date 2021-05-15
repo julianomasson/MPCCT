@@ -36,6 +36,7 @@ MainWindow::MainWindow() : project(nullptr)
     createDockWindows();
 
     setWindowTitle(tr("MPCCT"));
+    setEnabledProjectActions(false);
 }
 
 void MainWindow::newProject()
@@ -57,6 +58,7 @@ void MainWindow::newProject()
         }
     }
     project = new Project();
+    setEnabledProjectActions(true);
 }
 
 void MainWindow::open()
@@ -103,6 +105,7 @@ void MainWindow::open()
             camerasList->addItem(project->getCamera(i)->getListItem());
         }
         statusBar()->showMessage(tr("Opened '%1'").arg(fileName), 2000);
+        setEnabledProjectActions(true);
     }
 }
 
@@ -306,7 +309,11 @@ void MainWindow::cameraDoubleClick(QListWidgetItem* item)
     auto camera = project->getCamera(item);
     if (camera)
     {
-        renderer->SetActiveCamera(camera->getCamera());
+        auto vtkCamera = camera->getCamera();
+        renderer->GetActiveCamera()->SetPosition(vtkCamera->GetPosition());
+        renderer->GetActiveCamera()->SetFocalPoint(vtkCamera->GetFocalPoint());
+        renderer->GetActiveCamera()->SetViewUp(vtkCamera->GetViewUp());
+        renderer->GetActiveCamera()->SetViewAngle(vtkCamera->GetViewAngle());
         renderer->ResetCameraClippingRange();
         renderer->GetRenderWindow()->Render();
     }
@@ -338,12 +345,14 @@ void MainWindow::createActions()
     connect(saveAct, &QAction::triggered, this, &MainWindow::save);
     fileMenu->addAction(saveAct);
     fileToolBar->addAction(saveAct);
+    actions.emplace_back(saveAct);
 
     QAction* saveAsAct = new QAction(QIcon(":/images/saveAs.png"), tr("&Save as..."), this);
     saveAsAct->setShortcuts(QKeySequence::SaveAs);
     saveAsAct->setStatusTip(tr("Save the current project as"));
     connect(saveAsAct, &QAction::triggered, this, &MainWindow::saveAs);
     fileMenu->addAction(saveAsAct);
+    actions.emplace_back(saveAsAct);
 
     fileMenu->addSeparator();
 
@@ -368,18 +377,21 @@ void MainWindow::createActions()
     connect(addCameraAct, &QAction::triggered, this, &MainWindow::addCamera);
     editMenu->addAction(addCameraAct);
     editToolBar->addAction(addCameraAct);
+    actions.emplace_back(addCameraAct);
 
     QAction* updateCameraAct = new QAction(QIcon(":/images/updateCamera.png"), tr("&Update camera"), this);
     updateCameraAct->setStatusTip(tr("Update the selected camera parameters"));
     connect(updateCameraAct, &QAction::triggered, this, &MainWindow::updateCamera);
     editMenu->addAction(updateCameraAct);
     editToolBar->addAction(updateCameraAct);
+    actions.emplace_back(updateCameraAct);
 
     QAction* removeSelectedCameraAct = new QAction(QIcon(":/images/removeCamera.png"), tr("&Remove selected camera"), this);
     removeSelectedCameraAct->setStatusTip(tr("Remove selected camera from list"));
     connect(removeSelectedCameraAct, &QAction::triggered, this, &MainWindow::removeSelectedCamera);
     editMenu->addAction(removeSelectedCameraAct);
     editToolBar->addAction(removeSelectedCameraAct);
+    actions.emplace_back(removeSelectedCameraAct);
 
     editMenu->addSeparator();
     editToolBar->addSeparator();
@@ -437,4 +449,12 @@ void MainWindow::takeScreenshot(vtkSmartPointer<vtkRenderWindow> renderWindow,
     pngWriter->SetFileName(filename.c_str());
     pngWriter->SetInputConnection(filter->GetOutputPort());
     pngWriter->Write();
+}
+
+void MainWindow::setEnabledProjectActions(bool enable)
+{
+    for (const auto& action : actions)
+    {
+        action->setEnabled(enable);
+    }
 }
