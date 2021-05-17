@@ -1,9 +1,12 @@
 #pragma once
+#include <vtkSmartPointer.h>
 #include <qwidget.h>
 
 QT_BEGIN_NAMESPACE
 class QLineEdit;
 QT_END_NAMESPACE
+
+class vtkRenderWindow;
 
 class CaptureScreenshotsWidget : public QWidget
 {
@@ -13,16 +16,17 @@ public:
     CaptureScreenshotsWidget(QWidget* parent = nullptr);
 
 private slots:
-    void browseCameraFiles();
+    void browseProjectFiles();
     void browseMainDir();
     void startCapturing();
     void clearParameters();
 
 private:
-    QStringList findFiles(const QStringList& files, const QString& text);
+    void takeScreenshot(vtkSmartPointer<vtkRenderWindow> renderWindow,
+        const std::string& filename, const bool setTransparentBackgroud = false);
 
-    QStringList cameraFiles;
+    QStringList projectFiles;
     QString mainDir;
-    QLineEdit* lineCameras;
+    QLineEdit* lineProjects;
     QLineEdit* lineMainDir;
 };

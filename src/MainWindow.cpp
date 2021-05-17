@@ -4,8 +4,6 @@
 #include <QVTKOpenGLNativeWidget.h>
 #include <vtkGenericOpenGLRenderWindow.h>
 
-#include <vtkPLYReader.h>
-#include <vtkPolyDataMapper.h>
 #include <vtkActor.h>
 #include <vtkRenderer.h>
 #include <vtkCamera.h>
@@ -16,6 +14,7 @@
 
 #include "Project.h"
 #include "Camera.h"
+#include "Draw.h"
 
 MainWindow::MainWindow() : project(nullptr)
 {
@@ -160,21 +159,11 @@ void MainWindow::load()
     {
         return;
     }
-    vtkNew<vtkPLYReader> reader;
-    reader->SetFileName(fileName.toStdString().c_str());
-    reader->Update();
-    
-    auto polyData = reader->GetOutput();
-    if (!polyData)
+    auto actor = Draw::createActorFromPLY(fileName.toStdString(), renderer);
+    if (!actor)
     {
         return;
     }
-
-    vtkNew<vtkPolyDataMapper> mapper;
-    mapper->SetInputData(polyData);
-    vtkNew<vtkActor> actor;
-    actor->SetMapper(mapper);
-    renderer->AddActor(actor);
     renderer->ResetCamera();
     renderer->GetRenderWindow()->Render();
     QFileInfo fileInfo(fileName);
@@ -215,99 +204,6 @@ void MainWindow::removeSelectedCamera()
     }
 }
 
-void MainWindow::captureScreenshots()
-{
-    // Find the base filename
-    auto plyFileName = QFileDialog::getOpenFileName(this,
-        tr("Open mesh/point cloud"), "", tr("3D Files (*.ply)"));
-    if (plyFileName.isEmpty())
-    {
-        return;
-    }
-
-    QFileInfo fileInfo(plyFileName);
-    QFileInfo fileInfo2(fileInfo.absolutePath() + ".abc");
-    // Get the base directory
-    QDir directory(fileInfo2.absolutePath());
-    if (!directory.exists(fileInfo.fileName()))
-    {
-        if (!directory.mkdir(fileInfo.fileName()))
-        {
-            return;
-        }
-    }
-    // Create the cameras folders
-    for (size_t i = 0; i < project->getNumberOfCameras(); i++)
-    {
-        std::string folderName = fileInfo.fileName().toStdString() + "\\camera_" + std::to_string(i);
-        if (!directory.exists(folderName.c_str()))
-        {
-            if (!directory.mkdir(folderName.c_str()))
-            {
-                return;
-            }
-        }
-    }
-
-
-    // Loop trought each file
-    QStringList plyFiles = directory.entryList(QStringList() << fileInfo.fileName(), QDir::Files);
-    for(const auto& fileName : plyFiles)
-    {
-        // Load each filename
-    }
-
-
-    //std::string filenameToUse;
-    //wxArrayString plyFiles;
-    //wxDir::GetAllFiles(mainDir, &plyFiles, filenameToUse, wxDIR_FILES | wxDIR_DIRS);
-
-    //// Create the ply folder
-    //std::string plyFolder = mainDir + "\\" + filenameToUse;
-    //if (!wxDirExists(plyFolder))
-    //{
-    //    wxMkdir(plyFolder);
-    //}
-    //// Create the cameras folders
-    //for (size_t i = 0; i < cameras.size(); i++)
-    //{
-    //    auto folderName = plyFolder + "\\camera_" + std::to_string(i);
-    //    if (!wxDirExists(folderName))
-    //    {
-    //        wxMkdir(folderName);
-    //    }
-    //}
-
-
-    //// Create the offscreen renderer
-    //vtkNew<vtkRenderer> rendererOffScreen;
-    //vtkNew<vtkRenderWindow> renderWindowOffScreen;
-    //renderWindowOffScreen->SetOffScreenRendering(1);
-    //renderWindowOffScreen->SetSize(vtkOffscreenWindowSize.width(),
-    //    vtkOffscreenWindowSize.height());
-    //renderWindowOffScreen->AddRenderer(rendererOffScreen);
-
-
-
-    //// Loop through the ply files
-    //for (const auto& plyFile : plyFiles)
-    //{
-    //    auto actor = ReadPLY(plyFile.ToStdString());
-    //    rendererOffScreen->AddActor(actor);
-    //    // Loop through the cameras and save screenshots
-    //    for (size_t i = 0; i < cameras.size(); i++)
-    //    {
-    //        rendererOffScreen->SetActiveCamera(cameras[i]);
-    //        rendererOffScreen->ResetCameraClippingRange();
-    //        renderWindowOffScreen->Render();
-
-    //        TakeScreenshot(renderWindowOffScreen,
-    //            plyFolder + "\\camera_" + std::to_string(i) + "\\" + wxFileName(plyFile).GetDirs().Last().ToStdString() + ".png");
-    //    }
-    //    rendererOffScreen->RemoveActor(actor);
-    //}
-}
-
 void MainWindow::about()
 {
     QMessageBox::about(this, tr("About MPCCT"),
@@ -325,7 +221,7 @@ void MainWindow::cameraDoubleClick(QListWidgetItem* item)
     auto camera = project->getCamera(item);
     if (camera)
     {
-        auto vtkCamera = camera->getCamera();
+        auto vtkCamera = camera->getvtkCamera();
         renderer->GetActiveCamera()->SetPosition(vtkCamera->GetPosition());
         renderer->GetActiveCamera()->SetFocalPoint(vtkCamera->GetFocalPoint());
         renderer->GetActiveCamera()->SetViewUp(vtkCamera->GetViewUp());
@@ -409,15 +305,6 @@ void MainWindow::createActions()
     editToolBar->addAction(removeSelectedCameraAct);
     actions.emplace_back(removeSelectedCameraAct);
 
-    editMenu->addSeparator();
-    editToolBar->addSeparator();
-
-    QAction* startCapturingAct = new QAction(QIcon(":/images/play.png"), tr("&Start capturing"), this);
-    startCapturingAct->setStatusTip(tr("Start capturing screenshots"));
-    connect(startCapturingAct, &QAction::triggered, this, &MainWindow::captureScreenshots);
-    editMenu->addAction(startCapturingAct);
-    editToolBar->addAction(startCapturingAct);
-
     menuBar()->addSeparator();
 
     QMenu* helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -448,23 +335,6 @@ void MainWindow::createDockWindows()
 void MainWindow::createStatusBar()
 {
     statusBar()->showMessage(tr("Ready"));
-}
-
-void MainWindow::takeScreenshot(vtkSmartPointer<vtkRenderWindow> renderWindow,
-    const std::string& filename, const bool setTransparentBackgroud)
-{
-    vtkNew<vtkWindowToImageFilter> filter;
-    filter->SetInput(renderWindow);
-    if (setTransparentBackgroud)
-    {
-        filter->SetInputBufferTypeToRGBA();
-    }
-    filter->Update();
-
-    vtkNew<vtkPNGWriter> pngWriter;
-    pngWriter->SetFileName(filename.c_str());
-    pngWriter->SetInputConnection(filter->GetOutputPort());
-    pngWriter->Write();
 }
 
 void MainWindow::setEnabledProjectActions(bool enable)

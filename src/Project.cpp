@@ -80,7 +80,7 @@ bool Project::save(QString filename)
     int idx = 0;
     for (const auto& camera : cameras)
     {
-        const auto vtkCam = camera->getCamera();
+        const auto vtkCam = camera->getvtkCamera();
         std::stringstream s;
         s << "Camera" << idx;
         jsonFile[s.str()] = {

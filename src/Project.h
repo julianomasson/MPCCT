@@ -28,6 +28,7 @@ public:
     Camera* getCamera(int cameraIndex);
     Camera* getCamera(QListWidgetItem* selectedItem);
   
+    QString getPlyFilename() { return plyFilename; };
     QString getPath() { return path; };
     size_t getNumberOfCameras() { return cameras.size(); };
 

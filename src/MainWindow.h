@@ -36,7 +36,6 @@ private slots:
     void addCamera();
     void updateCamera();
     void removeSelectedCamera();
-    void captureScreenshots();
     void about();
     // Go to the selected camera
     void cameraDoubleClick(QListWidgetItem* item);
@@ -45,8 +44,6 @@ private:
     void createActions();
     void createDockWindows();
     void createStatusBar();
-    void takeScreenshot(vtkSmartPointer<vtkRenderWindow> renderWindow,
-        const std::string& filename, const bool setTransparentBackgroud = false);
     void setEnabledProjectActions(bool enable);
 
     QVTKOpenGLNativeWidget* vtkWidget;

@@ -17,7 +17,7 @@ public:
 	void setListItem(QListWidgetItem* item);
 	void setRenderWindowSize(int width, int height);
 
-	vtkSmartPointer<vtkCamera> getCamera() { return camera; };
+	vtkSmartPointer<vtkCamera> getvtkCamera() { return camera; };
 	QListWidgetItem* getListItem() { return item; };
 	int* getRenderWindowSize() { return vtkRenderWindowSize; };
 

@@ -20,6 +20,8 @@ add_executable(${PROJECT_NAME}
     				src/main.cpp
 					src/MainWindow.cpp
 					src/MainWindow.h
+					src/Draw.cpp
+					src/Draw.h
 					src/Camera.cpp
 					src/Camera.h
 					src/Project.cpp
