@@ -12,6 +12,7 @@
 #include <qlineedit.h>
 #include <qfiledialog.h>
 #include <qmessagebox.h>
+#include <qdiriterator.h>
 
 #include "Project.h"
 #include "Camera.h"
@@ -86,7 +87,7 @@ void CaptureScreenshotsWidget::startCapturing()
     if (projectFiles.size() == 0 || mainDir.isEmpty())
     {
         QMessageBox::warning(this, tr("MPCCT"),
-            tr("You need to select the cameras an the base dir."));
+            tr("You need to select the cameras and the base dir."));
         return;
     }
     // Loop trought projects
@@ -95,7 +96,9 @@ void CaptureScreenshotsWidget::startCapturing()
         Project project;
         if (!project.load(projectFile))
         {
-            // TODO: message could not open
+            QMessageBox::warning(this, tr("MPCCT"),
+                tr("Cannot open file %1.")
+                .arg(QDir::toNativeSeparators(projectFile)));
             continue;
         }
         // Create the project directory
@@ -136,10 +139,11 @@ void CaptureScreenshotsWidget::startCapturing()
         renderWindowOffScreen->SetOffScreenRendering(1);
         renderWindowOffScreen->AddRenderer(rendererOffScreen);
         // Find ply files
-        QStringList plyFiles = mainDirectory.entryList(QStringList() << plyFilename, QDir::Files);
+        QDirIterator plyFileIterator(mainDir, QStringList() << plyFilename, QDir::Files, QDirIterator::Subdirectories);
         // Loop through the ply files
-        for (const auto& plyFile : plyFiles)
+        while (plyFileIterator.hasNext())
         {
+            auto plyFile = plyFileIterator.next();
             auto actor = Draw::createActorFromPLY(plyFile.toStdString(), rendererOffScreen);
             if (!actor)
             {
@@ -147,6 +151,9 @@ void CaptureScreenshotsWidget::startCapturing()
             }
             // Loop through the cameras and save screenshots
             const auto numberOfCameras = project.getNumberOfCameras();
+            // Get the dir name
+            QFileInfo fileInfo(plyFile);
+            const auto dirName = fileInfo.absoluteDir().dirName().toStdString();
             for (size_t i = 0; i < numberOfCameras; i++)
             {
                 const auto camera = project.getCamera(i);
@@ -158,10 +165,10 @@ void CaptureScreenshotsWidget::startCapturing()
                 rendererOffScreen->SetActiveCamera(camera->getvtkCamera());
                 rendererOffScreen->ResetCameraClippingRange();
                 renderWindowOffScreen->Render();
-                QDir plyDir(plyFile);
+                
                 takeScreenshot(renderWindowOffScreen,
                     projectDir + "\\camera_" + std::to_string(i) +
-                    "\\" + plyDir.dirName().toStdString() + ".png");
+                    "\\" + dirName + ".png");
             }
             rendererOffScreen->RemoveActor(actor);
         }
