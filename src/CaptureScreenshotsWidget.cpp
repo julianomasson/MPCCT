@@ -173,6 +173,8 @@ void CaptureScreenshotsWidget::startCapturing()
             rendererOffScreen->RemoveActor(actor);
         }
     }
+    QMessageBox::information(this, tr("MPCCT"),
+        tr("Finished the capturing process."));
 }
 
 void CaptureScreenshotsWidget::clearParameters()
