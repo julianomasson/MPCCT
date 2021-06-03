@@ -27,6 +27,7 @@ MainWindow::MainWindow() : project(nullptr)
     renderWindow->AddRenderer(renderer);
     vtkWidget->update();
     renderWindow->Render();
+    actor = nullptr;
 
     setCentralWidget(vtkWidget);
 
@@ -51,14 +52,34 @@ void MainWindow::newProject()
         }
         else
         {
-            // TODO: remove the mesh/point cloud
+            if (actor)
+            {
+                renderer->RemoveActor(actor);
+                renderer->GetRenderWindow()->Render();
+            }
             // Clear the current project
             camerasList->clear();
-            lastPlyFilename = "";
             delete project;
         }
     }
-    project = new Project();
+    // Load mesh/point cloud
+    auto fileName = QFileDialog::getOpenFileName(this,
+        tr("Open mesh/point cloud"), "", tr("3D Files (*.ply)"));
+    if (fileName.isEmpty())
+    {
+        return;
+    }
+    actor = Draw::createActorFromPLY(fileName.toStdString(), renderer);
+    if (!actor)
+    {
+        return;
+    }
+    renderer->ResetCamera();
+    renderer->GetRenderWindow()->Render();
+    // Get the filename
+    QFileInfo fileInfo(fileName);
+    // Create the project
+    project = new Project(fileInfo.fileName());
     setEnabledProjectActions(true);
 }
 
@@ -112,12 +133,6 @@ void MainWindow::open()
 
 void MainWindow::save()
 {
-    if (lastPlyFilename.isEmpty())
-    {
-        QMessageBox::warning(this, tr("MPCCT"),
-            tr("You need to load a mesh/point cloud before saving."));
-        return;
-    }
     if (project->isOnDisk())
     {
         QGuiApplication::setOverrideCursor(Qt::WaitCursor);
@@ -133,12 +148,6 @@ void MainWindow::save()
 
 void MainWindow::saveAs()
 {
-    if (lastPlyFilename.isEmpty())
-    {
-        QMessageBox::warning(this, tr("MPCCT"),
-            tr("You need to load a mesh/point cloud before saving."));
-        return;
-    }
     QString fileName = QFileDialog::getSaveFileName(this,
         tr("Choose a file name"), "", tr("json File (*.json)"));
     if (fileName.isEmpty())
@@ -149,25 +158,6 @@ void MainWindow::saveAs()
     project->save(fileName);
     QGuiApplication::restoreOverrideCursor();
     statusBar()->showMessage(tr("Saved '%1'").arg(fileName), 2000);
-}
-
-void MainWindow::load()
-{
-    auto fileName = QFileDialog::getOpenFileName(this,
-        tr("Open mesh/point cloud"), "", tr("3D Files (*.ply)"));
-    if (fileName.isEmpty())
-    {
-        return;
-    }
-    auto actor = Draw::createActorFromPLY(fileName.toStdString(), renderer);
-    if (!actor)
-    {
-        return;
-    }
-    renderer->ResetCamera();
-    renderer->GetRenderWindow()->Render();
-    QFileInfo fileInfo(fileName);
-    lastPlyFilename = fileInfo.fileName();
 }
 
 void MainWindow::addCamera()
@@ -267,12 +257,6 @@ void MainWindow::createActions()
     actions.emplace_back(saveAsAct);
 
     fileMenu->addSeparator();
-
-    QAction* loadAct = new QAction(QIcon(":/images/load.png"), tr("&Load mesh/point cloud..."), this);
-    loadAct->setStatusTip(tr("Load a mesh/point cloud"));
-    connect(loadAct, &QAction::triggered, this, &MainWindow::load);
-    fileMenu->addAction(loadAct);
-    fileToolBar->addAction(loadAct);
 
     QAction* quitAct = fileMenu->addAction(tr("&Quit"), this, &QWidget::close);
     quitAct->setShortcuts(QKeySequence::Quit);

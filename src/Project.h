@@ -12,7 +12,8 @@ class Camera;
 class Project
 {
 public:
-	Project();
+    Project();
+	Project(QString plyFilename);
 	~Project();
 
 	bool load(const QString& filename);

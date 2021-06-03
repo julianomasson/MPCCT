@@ -15,6 +15,7 @@ QT_END_NAMESPACE
 class QVTKOpenGLNativeWidget;
 class vtkRenderer;
 class vtkRenderWindow;
+class vtkActor;
 
 class Project;
 class CaptureScreenshotsWidget;
@@ -31,8 +32,6 @@ private slots:
     void open();
     void save();
     void saveAs();
-    // Load mesh/point cloud
-    void load();
     void addCamera();
     void updateCamera();
     void removeSelectedCamera();
@@ -58,6 +57,6 @@ private:
 
     // Project that will hold the cameras
     Project* project;
-    // Last ply loaded
-    QString lastPlyFilename;
+    // The mesh/point cloud actor
+    vtkSmartPointer<vtkActor> actor;
 };

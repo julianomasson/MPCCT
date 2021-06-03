@@ -12,6 +12,10 @@ Project::Project() : path(""), plyFilename("")
 {
 }
 
+Project::Project(QString plyFilename) : path(""), plyFilename(plyFilename)
+{
+}
+
 Project::~Project()
 {
     cameras.clear();
